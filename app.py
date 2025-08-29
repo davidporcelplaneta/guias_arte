@@ -55,13 +55,18 @@ st.markdown(
         .stSelectbox div[data-baseweb="select"] > div {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
+            border: 1px solid {PRIMARY_COLOR} !important;
+            border-radius: 6px !important;
         }}
 
         /* Menú desplegable del selectbox */
         div[role="listbox"] {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
+            border: 1px solid {PRIMARY_COLOR} !important;
         }}
+
+        /* Opciones del selectbox */
         div[role="option"] {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
@@ -104,6 +109,8 @@ st.markdown(
         .stTextInput > div > div > input {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
+            border: 1px solid {PRIMARY_COLOR} !important;
+            border-radius: 6px !important;
         }}
 
         /* Botón de descarga */
@@ -132,6 +139,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
@@ -309,6 +317,7 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
 
