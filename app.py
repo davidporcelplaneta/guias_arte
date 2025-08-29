@@ -97,7 +97,7 @@ st.markdown(
     f"""
     <div class="header-container">
         <img src="{LOGO_URL}" class="header-logo">
-        <div class="header-title">ARTIKA BOOKS - GUIAS</div>
+        <div class="header-title">    CAPTACIÓN - GUIAS</div>
     </div>
     """,
     unsafe_allow_html=True
@@ -265,6 +265,7 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
 
