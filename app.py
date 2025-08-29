@@ -12,7 +12,20 @@ LOGO_URL = "https://artikabooks.com/wp-content/uploads/2024/01/logo-artikabooks.
 st.markdown(
     f"""
     <style>
-        /* Fondo general con imagen + overlay blanco 50% */
+        /* Quitar barra/linea superior */
+        div[data-testid="stDecoration"] {{display: none !important;}}
+        header[data-testid="stHeader"] {{
+            background: transparent !important;
+            box-shadow: none !important;
+            border-bottom: none !important;
+        }}
+
+        html, body, [data-testid="stAppViewContainer"] {{
+            margin: 0 !important;
+            padding: 0 !important;
+        }}
+
+        /* Fondo general */
         .stApp {{
             background: linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)),
                         url("{BG_IMAGE}");
@@ -23,36 +36,38 @@ st.markdown(
 
         /* Cabecera */
         .header-container {{
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
+            display: flex; align-items: center; justify-content: flex-start;
             background-color: white;
-            padding: 16px 26px;
-            border-radius: 12px;
-            margin-bottom: 16px;
-            border: 1px solid rgba(0,0,0,0.06);
+            padding: 16px 26px; border-radius: 12px;
+            margin-bottom: 16px; border: 1px solid rgba(0,0,0,0.06);
         }}
-
-        .header-logo {{
-            height: 54px;
-            margin-right: 18px;
-        }}
-
-        .header-title {{
-            font-size: 28px;
-            font-weight: 800;
-            letter-spacing: 0.3px;
-            color: {PRIMARY_COLOR};
-        }}
+        .header-logo {{height: 54px; margin-right: 18px;}}
+        .header-title {{font-size: 28px; font-weight: 800; color: {PRIMARY_COLOR};}}
 
         /* Tipografía general */
-        h1, h2, h3, h4, h5, h6, p, label, span, div {{
+        h1,h2,h3,h4,h5,h6,p,label,span,div {{
             color: {PRIMARY_COLOR} !important;
         }}
 
-        /* Inputs (selectbox, file_uploader, text inputs) */
+        /* ---------- INPUTS ---------- */
+
+        /* Selectbox (caja principal) */
         .stSelectbox div[data-baseweb="select"] > div {{
             background-color: white !important;
+            color: {PRIMARY_COLOR} !important;
+        }}
+
+        /* Selectbox (menú desplegable) */
+        ul[data-baseweb="menu"] {{
+            background-color: white !important;
+            color: {PRIMARY_COLOR} !important;
+        }}
+        ul[data-baseweb="menu"] li {{
+            background-color: white !important;
+            color: {PRIMARY_COLOR} !important;
+        }}
+        ul[data-baseweb="menu"] li:hover {{
+            background-color: #e6eaf5 !important;
             color: {PRIMARY_COLOR} !important;
         }}
 
@@ -69,8 +84,7 @@ st.markdown(
             color: {PRIMARY_COLOR} !important;
             font-weight: 500 !important;
         }}
-
-        /* Botón Browse files dentro del uploader */
+        /* Botón Browse files */
         .stFileUploader div[data-testid="stFileUploaderDropzone"] button,
         .stFileUploader section[data-testid="stFileUploaderDropzone"] button {{
             background-color: white !important;
@@ -100,21 +114,19 @@ st.markdown(
             font-weight: 600;
         }}
 
-        /* Sidebar blanco con texto primario */
+        /* Sidebar blanco */
         section[data-testid="stSidebar"] > div {{
             background-color: rgba(255,255,255,0.92);
-            padding: 8px 10px;
-            border-left: 1px solid rgba(0,0,0,0.06);
+            padding: 8px 10px; border-left: 1px solid rgba(0,0,0,0.06);
         }}
         section[data-testid="stSidebar"] * {{
             color: {PRIMARY_COLOR} !important;
         }}
 
-        /* Dataframe borde suave */
+        /* Dataframe */
         div[data-testid="stDataFrame"] {{
             background-color: rgba(255,255,255,0.85);
-            border-radius: 10px;
-            padding: 6px;
+            border-radius: 10px; padding: 6px;
         }}
     </style>
     """,
@@ -296,6 +308,7 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
 
