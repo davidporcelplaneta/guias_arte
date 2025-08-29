@@ -50,6 +50,20 @@ st.markdown(
             color: {PRIMARY_COLOR} !important;
         }}
 
+        /* Inputs (selectbox, file_uploader, etc.) */
+        .stSelectbox div[data-baseweb="select"] > div {{
+            background-color: white !important;
+            color: {PRIMARY_COLOR} !important;
+        }}
+        .stFileUploader div[data-testid="stFileUploaderDropzone"] {{
+            background-color: white !important;
+            color: {PRIMARY_COLOR} !important;
+        }}
+        .stTextInput > div > div > input {{
+            background-color: white !important;
+            color: {PRIMARY_COLOR} !important;
+        }}
+
         /* Botón de descarga */
         .stDownloadButton button {{
             background-color: {PRIMARY_COLOR} !important;
@@ -252,3 +266,4 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
