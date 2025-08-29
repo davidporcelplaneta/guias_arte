@@ -57,13 +57,15 @@ st.markdown(
         }}
 
         /* Recuadro drag & drop file uploader */
-        .stFileUploader div[data-testid="stFileUploaderDropzone"] {{
+        .stFileUploader div[data-testid="stFileUploaderDropzone"],
+        .stFileUploader section[data-testid="stFileUploaderDropzone"] {{
             background-color: white !important;
             border: 2px dashed {PRIMARY_COLOR} !important;
             border-radius: 10px !important;
             color: {PRIMARY_COLOR} !important;
         }}
-        .stFileUploader div[data-testid="stFileUploaderDropzone"] span {{
+        .stFileUploader div[data-testid="stFileUploaderDropzone"] span,
+        .stFileUploader section[data-testid="stFileUploaderDropzone"] span {{
             color: {PRIMARY_COLOR} !important;
             font-weight: 500 !important;
         }}
@@ -277,6 +279,7 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
 
