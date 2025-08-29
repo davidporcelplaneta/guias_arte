@@ -50,15 +50,25 @@ st.markdown(
             color: {PRIMARY_COLOR} !important;
         }}
 
-        /* Inputs (selectbox, file_uploader, etc.) */
+        /* Inputs (selectbox, file_uploader, text inputs) */
         .stSelectbox div[data-baseweb="select"] > div {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
         }}
+
+        /* Recuadro drag & drop file uploader */
         .stFileUploader div[data-testid="stFileUploaderDropzone"] {{
             background-color: white !important;
+            border: 2px dashed {PRIMARY_COLOR} !important;
+            border-radius: 10px !important;
             color: {PRIMARY_COLOR} !important;
         }}
+        .stFileUploader div[data-testid="stFileUploaderDropzone"] span {{
+            color: {PRIMARY_COLOR} !important;
+            font-weight: 500 !important;
+        }}
+
+        /* Text input */
         .stTextInput > div > div > input {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
@@ -88,33 +98,11 @@ st.markdown(
             border-radius: 10px;
             padding: 6px;
         }}
-
-        /* Inputs (selectbox, file_uploader, etc.) */
-        .stSelectbox div[data-baseweb="select"] > div {
-            background-color: white !important;
-            color: {PRIMARY_COLOR} !important;
-        }
-
-        /* Recuadro drag & drop file uploader */
-        .stFileUploader div[data-testid="stFileUploaderDropzone"] {
-            background-color: white !important;
-            border: 2px dashed {PRIMARY_COLOR} !important;
-            border-radius: 10px !important;
-            color: {PRIMARY_COLOR} !important;
-        }
-        .stFileUploader div[data-testid="stFileUploaderDropzone"] span {
-            color: {PRIMARY_COLOR} !important;
-            font-weight: 500 !important;
-        }
-
-        .stTextInput > div > div > input {
-            background-color: white !important;
-            color: {PRIMARY_COLOR} !important;
-        }
     </style>
     """,
     unsafe_allow_html=True
 )
+
 
 # Cabecera
 st.markdown(
@@ -289,5 +277,6 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
