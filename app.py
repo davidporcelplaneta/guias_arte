@@ -51,22 +51,22 @@ st.markdown(
 
         /* ---------- INPUTS ---------- */
 
-        /* Selectbox (caja principal) */
+        /* Caja principal del selectbox */
         .stSelectbox div[data-baseweb="select"] > div {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
         }}
 
-        /* Selectbox (menú desplegable) */
-        ul[data-baseweb="menu"] {{
+        /* Menú desplegable del selectbox */
+        div[role="listbox"] {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
         }}
-        ul[data-baseweb="menu"] li {{
+        div[role="option"] {{
             background-color: white !important;
             color: {PRIMARY_COLOR} !important;
         }}
-        ul[data-baseweb="menu"] li:hover {{
+        div[role="option"]:hover {{
             background-color: #e6eaf5 !important;
             color: {PRIMARY_COLOR} !important;
         }}
@@ -132,6 +132,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
@@ -308,6 +309,7 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
 
