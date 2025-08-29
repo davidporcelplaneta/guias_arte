@@ -89,6 +89,12 @@ st.markdown(
             border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
         }}
 
+        /* Number input */
+        .stNumberInput input[type="number"] {{
+            background:white !important; color:{PRIMARY_COLOR} !important;
+            border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
+        }}
+
         /* Botón de descarga */
         .stDownloadButton button {{
             background:white !important; color:{PRIMARY_COLOR} !important;
@@ -113,9 +119,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-
-
 
 # Cabecera
 st.markdown(
@@ -179,7 +182,7 @@ MAP_PRODUCTO = {
 }
 
 # ================== FUNCIÓN DE TRANSFORMACIÓN ==================
-def transformar(df: pd.DataFrame) -> pd.DataFrame:
+def transformar(df: pd.DataFrame, start_id_value=None) -> pd.DataFrame:
     # 1) Mantener columnas necesarias (avisar si falta alguna)
     faltan = [c for c in COLUMNAS_NECESARIAS if c not in df.columns]
     if faltan:
@@ -189,6 +192,18 @@ def transformar(df: pd.DataFrame) -> pd.DataFrame:
 
     # 2) Renombrar
     df.rename(columns=RENOMBRE, inplace=True)
+
+    # 2.5) ===== FILTRAR DESDE ID (INCLUSIVO) - FORZADO A NUMÉRICO =====
+    if start_id_value is not None and "id_integrador" in df.columns:
+        df["id_integrador"] = pd.to_numeric(df["id_integrador"], errors="coerce")
+        total_antes = len(df)
+        df = df.dropna(subset=["id_integrador"])  # descartar no numéricos
+        descartados_no_num = total_antes - len(df)
+        df = df.loc[df["id_integrador"] >= int(start_id_value)]
+        descartados_previos = total_antes - descartados_no_num - len(df)
+        st.info(f"Filtrado por ID desde **{int(start_id_value)}**: "
+                f"descartados no numéricos = {descartados_no_num}, "
+                f"descartados por ser anteriores = {max(descartados_previos, 0)}")
 
     # ===== DEDUPLICADO INMEDIATO TRAS RENOMBRAR =====
     # 3) Filtrar filas cuyo producto_interes contenga "NON" (case-insensitive)
@@ -215,7 +230,7 @@ def transformar(df: pd.DataFrame) -> pd.DataFrame:
 
     # 8) Añadir sufijo a id_integrador
     if "id_integrador" in df.columns:
-        df["id_integrador"] = df["id_integrador"].astype(str) + "-es_guias"
+        df["id_integrador"] = df["id_integrador"].astype("Int64").astype(str) + "-es_guias"
 
     # 9) Limpiar teléfono (quitar espacios)
     if "telefono" in df.columns:
@@ -269,8 +284,26 @@ else:
     st.subheader("👀 Vista previa - Entrada")
     st.dataframe(df_in.head(20), use_container_width=True)
 
+    # ===== UI: Selección de ID de inicio (siempre numérico) =====
+    start_id_value = None
+    if "Submission ID" in df_in.columns:
+        serie_num = pd.to_numeric(df_in["Submission ID"], errors="coerce").dropna()
+        if not serie_num.empty:
+            min_id = int(serie_num.min())
+            max_id = int(serie_num.max())
+            st.markdown("### 🔢 Procesar desde ID (id_integrador)")
+            start_id_value = st.number_input(
+                "Indica el ID desde el que quieres procesar (inclusivo).",
+                min_value=min_id, max_value=max_id, value=min_id, step=1,
+                help="Se eliminarán los registros con ID inferiores."
+            )
+        else:
+            st.error("La columna 'Submission ID' no contiene valores numéricos válidos.")
+    else:
+        st.info("No se encontró la columna 'Submission ID'. No se aplicará el filtro por ID de inicio.")
+
     # Transformar
-    df_out = transformar(df_in)
+    df_out = transformar(df_in, start_id_value=start_id_value)
 
     st.subheader("✅ Vista previa - Salida")
     st.dataframe(df_out.head(20), use_container_width=True)
@@ -290,14 +323,3 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
-
-
-
-
-
-
-
-
-
-
-
