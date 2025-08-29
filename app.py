@@ -12,12 +12,20 @@ LOGO_URL = "https://artikabooks.com/wp-content/uploads/2024/01/logo-artikabooks.
 st.markdown(
     f"""
     <style>
-        /* --- Quitar barra/linea superior --- */
+        /* Quitar barra/linea superior */
         div[data-testid="stDecoration"] {{ display:none !important; }}
-        header[data-testid="stHeader"] {{ background:transparent !important; box-shadow:none !important; border-bottom:none !important; }}
-        html, body, [data-testid="stAppViewContainer"] {{ margin:0 !important; padding:0 !important; }}
+        header[data-testid="stHeader"] {{
+            background:transparent !important;
+            box-shadow:none !important;
+            border-bottom:none !important;
+        }}
 
-        /* --- Fondo general --- */
+        html, body, [data-testid="stAppViewContainer"] {{
+            margin:0 !important;
+            padding:0 !important;
+        }}
+
+        /* Fondo general */
         .stApp {{
             background: linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)),
                         url("{BG_IMAGE}");
@@ -25,69 +33,86 @@ st.markdown(
             color:{PRIMARY_COLOR};
         }}
 
-        /* --- Cabecera --- */
-        .header-container {{ display:flex; align-items:center; background:white; padding:16px 26px; border-radius:12px; margin-bottom:16px; border:1px solid rgba(0,0,0,0.06); }}
-        .header-logo {{ height:54px; margin-right:18px; }}
-        .header-title {{ font-size:28px; font-weight:800; color:{PRIMARY_COLOR}; }}
+        /* Cabecera */
+        .header-container {{
+            display:flex; align-items:center; justify-content:flex-start;
+            background:white; padding:16px 26px; border-radius:12px;
+            margin-bottom:16px; border:1px solid rgba(0,0,0,0.06);
+        }}
+        .header-logo {{height:54px; margin-right:18px;}}
+        .header-title {{font-size:28px; font-weight:800; color:{PRIMARY_COLOR};}}
 
-        /* --- Tipografía global --- */
-        h1,h2,h3,h4,h5,h6,p,label,span,div {{ color:{PRIMARY_COLOR} !important; }}
+        /* Tipografía global */
+        h1,h2,h3,h4,h5,h6,p,label,span,div {{
+            color:{PRIMARY_COLOR} !important;
+        }}
 
         /* ---------- INPUTS ---------- */
 
-        /* Caja principal selectbox (cerrada) */
+        /* Caja principal selectbox */
         .stSelectbox div[data-baseweb="select"] > div {{
             background:white !important; color:{PRIMARY_COLOR} !important;
             border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
         }}
-        /* Icono flecha */
         .stSelectbox div[data-baseweb="select"] svg {{ fill:{PRIMARY_COLOR} !important; }}
 
-        /* POPUP/POPOVER del menú (se monta fuera del sidebar) */
+        /* Menú desplegable */
         div[data-baseweb="popover"] {{ background:white !important; color:{PRIMARY_COLOR} !important; }}
-        div[data-baseweb="popover"] * {{ color:{PRIMARY_COLOR} !important; }}
-        /* Caja del listado */
-        div[role="listbox"] {{
-            background:white !important; color:{PRIMARY_COLOR} !important;
-            border:1px solid {PRIMARY_COLOR} !important; border-radius:8px !important;
-        }}
-        /* Cada opción */
+        div[role="listbox"] {{ background:white !important; color:{PRIMARY_COLOR} !important; border:1px solid {PRIMARY_COLOR} !important; border-radius:8px !important; }}
         div[role="option"] {{ background:white !important; color:{PRIMARY_COLOR} !important; }}
         div[role="option"]:hover {{ background:#e6eaf5 !important; color:{PRIMARY_COLOR} !important; }}
-        /* Por si BaseWeb inyecta capas internas extra */
-        div[role="listbox"] > div, div[role="option"] > * {{ background:white !important; color:{PRIMARY_COLOR} !important; }}
 
-        /* Uploader: dropzone + botón */
+        /* File uploader */
         .stFileUploader div[data-testid="stFileUploaderDropzone"],
         .stFileUploader section[data-testid="stFileUploaderDropzone"] {{
-            background:white !important; border:2px dashed {PRIMARY_COLOR} !important; border-radius:10px !important; color:{PRIMARY_COLOR} !important;
+            background:white !important; border:2px dashed {PRIMARY_COLOR} !important;
+            border-radius:10px !important; color:{PRIMARY_COLOR} !important;
         }}
         .stFileUploader div[data-testid="stFileUploaderDropzone"] span,
-        .stFileUploader section[data-testid="stFileUploaderDropzone"] span {{ color:{PRIMARY_COLOR} !important; font-weight:500 !important; }}
+        .stFileUploader section[data-testid="stFileUploaderDropzone"] span {{
+            color:{PRIMARY_COLOR} !important; font-weight:500 !important;
+        }}
         .stFileUploader div[data-testid="stFileUploaderDropzone"] button,
         .stFileUploader section[data-testid="stFileUploaderDropzone"] button {{
-            background:white !important; color:{PRIMARY_COLOR} !important; border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important; font-weight:600 !important; padding:4px 12px !important;
+            background:white !important; color:{PRIMARY_COLOR} !important;
+            border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
+            font-weight:600 !important; padding:4px 12px !important;
         }}
         .stFileUploader div[data-testid="stFileUploaderDropzone"] button:hover,
-        .stFileUploader section[data-testid="stFileUploaderDropzone"] button:hover {{ background:#e6eaf5 !important; }}
+        .stFileUploader section[data-testid="stFileUploaderDropzone"] button:hover {{
+            background:#e6eaf5 !important; color:{PRIMARY_COLOR} !important;
+        }}
 
         /* Text input */
-        .stTextInput > div > div > input {{ background:white !important; color:{PRIMARY_COLOR} !important; border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important; }}
+        .stTextInput > div > div > input {{
+            background:white !important; color:{PRIMARY_COLOR} !important;
+            border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
+        }}
 
         /* Botón de descarga */
-        .stDownloadButton button {{ background:{PRIMARY_COLOR} !important; color:white !important; border-radius:8px; font-weight:600; }}
+        .stDownloadButton button {{
+            background:white !important; color:{PRIMARY_COLOR} !important;
+            border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
+            font-weight:600 !important; padding:6px 16px !important;
+        }}
+        .stDownloadButton button:hover {{
+            background:#e6eaf5 !important; color:{PRIMARY_COLOR} !important;
+        }}
 
-        /* Sidebar blanco */
-        section[data-testid="stSidebar"] > div {{ background:rgba(255,255,255,0.92); padding:8px 10px; border-left:1px solid rgba(0,0,0,0.06); }}
+        /* Sidebar */
+        section[data-testid="stSidebar"] > div {{
+            background:rgba(255,255,255,0.92); padding:8px 10px; border-left:1px solid rgba(0,0,0,0.06);
+        }}
         section[data-testid="stSidebar"] * {{ color:{PRIMARY_COLOR} !important; }}
 
         /* Dataframe */
-        div[data-testid="stDataFrame"] {{ background:rgba(255,255,255,0.85); border-radius:10px; padding:6px; }}
+        div[data-testid="stDataFrame"] {{
+            background:rgba(255,255,255,0.85); border-radius:10px; padding:6px;
+        }}
     </style>
     """,
     unsafe_allow_html=True
 )
-
 
 
 
@@ -265,6 +290,7 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
 
