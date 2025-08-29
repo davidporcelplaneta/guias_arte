@@ -70,6 +70,22 @@ st.markdown(
             font-weight: 500 !important;
         }}
 
+        /* Botón Browse files dentro del uploader */
+        .stFileUploader div[data-testid="stFileUploaderDropzone"] button,
+        .stFileUploader section[data-testid="stFileUploaderDropzone"] button {{
+            background-color: white !important;
+            color: {PRIMARY_COLOR} !important;
+            border: 1px solid {PRIMARY_COLOR} !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            padding: 4px 12px !important;
+        }}
+        .stFileUploader div[data-testid="stFileUploaderDropzone"] button:hover,
+        .stFileUploader section[data-testid="stFileUploaderDropzone"] button:hover {{
+            background-color: #e6eaf5 !important;
+            color: {PRIMARY_COLOR} !important;
+        }}
+
         /* Text input */
         .stTextInput > div > div > input {{
             background-color: white !important;
@@ -104,6 +120,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 # Cabecera
@@ -279,6 +296,7 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
 
 
