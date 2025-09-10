@@ -178,7 +178,7 @@ MAP_PRODUCTO = {
     "SI":  "Sorolla Íntimo",
     "P61": "Jaume Plensa 61",
     "VC":  "Fernando Botero - Via Crucis",
-    "MY2": "Steve McCurry - Capturando la vida",
+    "CV": "Steve McCurry - Capturando la vida",
 }
 
 # ================== FUNCIÓN DE TRANSFORMACIÓN ==================
@@ -323,3 +323,4 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
