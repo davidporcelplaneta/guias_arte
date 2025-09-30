@@ -151,18 +151,18 @@ uploaded = st.file_uploader("📤 Sube tu archivo CSV", type=["csv"])
 # ================== PARÁMETROS DEL PIPELINE ==================
 COLUMNAS_NECESARIAS = [
     "Submission ID", "Created", "Nombre y Apellidos",
-    "Teléfono (Te enviaremos toda la información por WhatsApp)", "Email",
-    "Guía", "Otro interés", "gdpr_e", "gdpr_g", "campaign_fullcode", "País"
+    "Teléfono", "Email",
+    "Guía", "Artista", "gdpr_e", "gdpr_g", "campaign_fullcode", "País"
 ]
 
 RENOMBRE = {
     "Submission ID": "id_integrador",
     "Created": "fecha_captacion",
     "Nombre y Apellidos": "nombre",
-    "Teléfono (Te enviaremos toda la información por WhatsApp)": "telefono",
+    "Teléfono": "telefono",
     "Email": "email",
     "Guía": "guia",
-    "Otro interés": "producto_interes",
+    "Artista": "producto_interes",
     "gdpr_e": "rgpd_acepta",
     "gdpr_g": "rgpd_grupo",
     "campaign_fullcode": "modalidad",
@@ -323,4 +323,5 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
 
