@@ -131,20 +131,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.caption("Carga un CSV, aplica el pipeline de transformación y descarga el resultado. Las tildes se conservan (opción BOM para Excel).")
+st.caption("Carga un CSV, aplica el pipeline de transformación y descarga el resultado en Excel (.xlsx).")
 
 # ================== SIDEBAR ==================
 with st.sidebar:
     st.header("⚙️ Opciones de lectura")
     sep_in = st.selectbox("Separador de entrada", [",", ";", "\t"], index=0, help="Separador del CSV original.")
     enc_in = st.selectbox("Codificación de entrada", ["utf-8", "latin-1"], index=0)
-
-    st.header("⚙️ Opciones de salida")
-    sep_out = st.selectbox("Separador de salida", [",", ";", "\t"], index=0, help="Para Excel en es-ES suele ir bien ';'")
-    bom_out = st.checkbox("Incluir BOM (utf-8-sig) para Excel", value=True)
-
-    st.markdown("---")
-    st.caption("Si ves caracteres raros en Excel, activa BOM o importa el CSV eligiendo UTF-8.")
 
 uploaded = st.file_uploader("📤 Sube tu archivo CSV", type=["csv"])
 
@@ -267,6 +260,39 @@ def transformar(df: pd.DataFrame, start_id_value=None) -> pd.DataFrame:
 
     return df
 
+# ===== Utilidad: exportar a XLSX con fallback de motor =====
+def dataframe_a_xlsx_bytes(df: pd.DataFrame, sheet_name: str = "datos") -> bytes:
+    buffer = io.BytesIO()
+
+    # Intentar con xlsxwriter (mejor para set_column); si no, openpyxl; si no, sin ajuste de ancho
+    try:
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name=sheet_name)
+            worksheet = writer.sheets[sheet_name]
+
+            # Autoajuste básico usando hasta 100 filas (para rendimiento)
+            for i, col in enumerate(df.columns):
+                sample = df[col].astype(str).head(100).tolist()
+                max_len = max([len(col)] + [len(s) for s in sample]) + 2
+                worksheet.set_column(i, i, min(max_len, 50))
+    except Exception:
+        try:
+            from openpyxl.utils import get_column_letter  # type: ignore
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name=sheet_name)
+                ws = writer.sheets[sheet_name]
+                for i, col in enumerate(df.columns, start=1):
+                    sample = df[col].astype(str).head(100).tolist()
+                    max_len = max([len(col)] + [len(s) for s in sample]) + 2
+                    ws.column_dimensions[get_column_letter(i)].width = min(max_len, 50)
+        except Exception:
+            # Último recurso: sin ajuste de anchos
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False, sheet_name=sheet_name)
+
+    buffer.seek(0)
+    return buffer.getvalue()
+
 # ================== FLUJO DE LA APP ==================
 if uploaded is None:
     st.info("Sube un archivo CSV para comenzar.")
@@ -308,32 +334,15 @@ else:
     st.subheader("✅ Vista previa - Salida")
     st.dataframe(df_out.head(20), use_container_width=True)
 
-# ===== Descarga en XLSX =====
-import io
+    # ===== Descarga en XLSX =====
+    data_xlsx = dataframe_a_xlsx_bytes(df_out, sheet_name="datos")
 
-buffer = io.BytesIO()
-with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-    df_out.to_excel(writer, index=False, sheet_name="datos")
+    st.download_button(
+        label="⬇️ Descargar Excel transformado (.xlsx)",
+        data=data_xlsx,
+        file_name="descargas_transformado.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 
-    # (Opcional) Autoajuste simple de anchos de columna
-    worksheet = writer.sheets["datos"]
-    for i, col in enumerate(df_out.columns):
-        # Calcula un ancho razonable usando hasta 100 filas para no tardar
-        sample = df_out[col].astype(str).head(100).tolist()
-        max_len = max([len(col)] + [len(s) for s in sample]) + 2
-        worksheet.set_column(i, i, min(max_len, 50))
-
-# Importante: mover el puntero al principio y obtener los bytes
-buffer.seek(0)
-data = buffer.getvalue()
-
-st.download_button(
-    label="⬇️ Descargar Excel transformado (.xlsx)",
-    data=data,
-    file_name="descargas_transformado.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    use_container_width=True
-)
-
-
-
+    st.success("Transformación completada. Puedes descargar el archivo arriba.")
