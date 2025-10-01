@@ -1,4 +1,6 @@
 import io
+import unicodedata
+from pathlib import Path
 import pandas as pd
 import streamlit as st
 
@@ -49,20 +51,17 @@ st.markdown(
 
         /* ---------- INPUTS ---------- */
 
-        /* Caja principal selectbox */
         .stSelectbox div[data-baseweb="select"] > div {{
             background:white !important; color:{PRIMARY_COLOR} !important;
             border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
         }}
         .stSelectbox div[data-baseweb="select"] svg {{ fill:{PRIMARY_COLOR} !important; }}
 
-        /* Menú desplegable */
         div[data-baseweb="popover"] {{ background:white !important; color:{PRIMARY_COLOR} !important; }}
         div[role="listbox"] {{ background:white !important; color:{PRIMARY_COLOR} !important; border:1px solid {PRIMARY_COLOR} !important; border-radius:8px !important; }}
         div[role="option"] {{ background:white !important; color:{PRIMARY_COLOR} !important; }}
         div[role="option"]:hover {{ background:#e6eaf5 !important; color:{PRIMARY_COLOR} !important; }}
 
-        /* File uploader */
         .stFileUploader div[data-testid="stFileUploaderDropzone"],
         .stFileUploader section[data-testid="stFileUploaderDropzone"] {{
             background:white !important; border:2px dashed {PRIMARY_COLOR} !important;
@@ -83,19 +82,16 @@ st.markdown(
             background:#e6eaf5 !important; color:{PRIMARY_COLOR} !important;
         }}
 
-        /* Text input */
         .stTextInput > div > div > input {{
             background:white !important; color:{PRIMARY_COLOR} !important;
             border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
         }}
 
-        /* Number input */
         .stNumberInput input[type="number"] {{
             background:white !important; color:{PRIMARY_COLOR} !important;
             border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
         }}
 
-        /* Botón de descarga */
         .stDownloadButton button {{
             background:white !important; color:{PRIMARY_COLOR} !important;
             border:1px solid {PRIMARY_COLOR} !important; border-radius:6px !important;
@@ -105,13 +101,11 @@ st.markdown(
             background:#e6eaf5 !important; color:{PRIMARY_COLOR} !important;
         }}
 
-        /* Sidebar */
         section[data-testid="stSidebar"] > div {{
             background:rgba(255,255,255,0.92); padding:8px 10px; border-left:1px solid rgba(0,0,0,0.06);
         }}
         section[data-testid="stSidebar"] * {{ color:{PRIMARY_COLOR} !important; }}
 
-        /* Dataframe */
         div[data-testid="stDataFrame"] {{
             background:rgba(255,255,255,0.85); border-radius:10px; padding:6px;
         }}
@@ -135,7 +129,7 @@ st.caption("Carga un CSV, aplica el pipeline de transformación y descarga el re
 
 # ================== SIDEBAR ==================
 with st.sidebar:
-    st.header("⚙️ Opciones de lectura")
+    st.header("⚙️ Opciones de lectura (CSV principal)")
     sep_in = st.selectbox("Separador de entrada", [",", ";", "\t"], index=0, help="Separador del CSV original.")
     enc_in = st.selectbox("Codificación de entrada", ["utf-8", "latin-1"], index=0)
 
@@ -171,11 +165,49 @@ MAP_PRODUCTO = {
     "SI":  "Sorolla Íntimo",
     "P61": "Jaume Plensa 61",
     "VC":  "Fernando Botero - Via Crucis",
-    "CV": "Steve McCurry - Capturando la vida",
+    "CV":  "Steve McCurry - Capturando la vida",
 }
 
+# ================== UTILIDADES ==================
+def normalizar_texto_series(s: pd.Series) -> pd.Series:
+    """Minimiza errores de join: quita tildes, pasa a minúsculas, trim y colapsa espacios."""
+    s = s.astype(str).str.strip().str.lower()
+    s = s.apply(lambda x: ''.join(c for c in unicodedata.normalize('NFKD', x) if not unicodedata.combining(c)))
+    s = s.str.replace(r'\s+', ' ', regex=True)
+    return s
+
+# ================== CARGA LOCAL DEL MAESTRO ==================
+def cargar_maestro_local() -> pd.DataFrame | None:
+    """
+    Carga 'Paises_landing_ISO.xlsx' desde:
+    1) el mismo directorio que app.py
+    2) ./data/Paises_landing_ISO.xlsx
+    Requiere columnas: 'País' y 'País_normalizado'
+    """
+    candidates = [
+        Path(__file__).parent / "Paises_landing_ISO.xlsx",
+        Path(__file__).parent / "data" / "Paises_landing_ISO.xlsx",
+    ]
+    for p in candidates:
+        try:
+            if p.exists():
+                dfm = pd.read_excel(p)
+                if {"País", "País_normalizado"}.issubset(dfm.columns):
+                    return dfm
+        except Exception:
+            pass
+    return None
+
+DF_MAESTRO = cargar_maestro_local()
+if DF_MAESTRO is None:
+    st.error("❌ No se encontró el maestro 'Paises_landing_ISO.xlsx' en el mismo directorio ni en ./data/. "
+             "Colócalo junto a app.py o en ./data/ y vuelve a ejecutar.")
+else:
+    st.caption("✅ Maestro de países cargado desde el directorio del proyecto.")
+    st.dataframe(DF_MAESTRO.head(10), use_container_width=True)
+
 # ================== FUNCIÓN DE TRANSFORMACIÓN ==================
-def transformar(df: pd.DataFrame, start_id_value=None) -> pd.DataFrame:
+def transformar(df: pd.DataFrame, start_id_value=None, df_maestro: pd.DataFrame | None = None) -> pd.DataFrame:
     # 1) Mantener columnas necesarias (avisar si falta alguna)
     faltan = [c for c in COLUMNAS_NECESARIAS if c not in df.columns]
     if faltan:
@@ -233,6 +265,42 @@ def transformar(df: pd.DataFrame, start_id_value=None) -> pd.DataFrame:
     if "pais" in df.columns:
         df["pais"] = df["pais"].astype(str).str.split(":").str[0].str.strip()
 
+    # === 10.1) CRUCE CON MAESTRO PARA DEJAR 'pais' NORMALIZADO ===
+    if df_maestro is not None and {"País", "País_normalizado"}.issubset(df_maestro.columns) and "pais" in df.columns:
+        # Normalizar claves en ambos lados
+        df["_pais_norm"] = normalizar_texto_series(df["pais"])
+        df_maestro = df_maestro.copy()
+        df_maestro["_pais_norm"] = normalizar_texto_series(df_maestro["País"])
+
+        # Evitar duplicados en maestro por la clave normalizada
+        df_maestro = df_maestro.drop_duplicates(subset=["_pais_norm"], keep="first")
+
+        # Hacer merge para traer País_normalizado
+        df = df.merge(
+            df_maestro[["_pais_norm", "País_normalizado"]],
+            on="_pais_norm",
+            how="left"
+        )
+
+        # Reemplazar 'pais' por el valor normalizado cuando exista
+        df["pais"] = df["País_normalizado"].fillna(df["pais"])
+
+        # Reporte de cobertura y no-coincidencias
+        total = len(df)
+        matched = df["País_normalizado"].notna().sum()
+        if total > 0:
+            st.info(f"Maestro de países: {matched} de {total} filas normalizadas ({matched/total:.1%}).")
+
+        no_match = df.loc[df["País_normalizado"].isna(), "pais"].dropna().unique().tolist()
+        if no_match:
+            st.warning(
+                "Países sin correspondencia en el maestro (muestra máx. 20): "
+                + ", ".join(no_match[:20]) + ("..." if len(no_match) > 20 else "")
+            )
+
+        # Limpieza columnas auxiliares
+        df.drop(columns=["_pais_norm", "País_normalizado"], inplace=True, errors="ignore")
+
     # 11) Mapear RGPD
     if "rgpd_acepta" in df.columns:
         df["rgpd_acepta"] = df["rgpd_acepta"].map(MAP_RGPD)
@@ -264,7 +332,7 @@ def transformar(df: pd.DataFrame, start_id_value=None) -> pd.DataFrame:
 def dataframe_a_xlsx_bytes(df: pd.DataFrame, sheet_name: str = "datos") -> bytes:
     buffer = io.BytesIO()
 
-    # Intentar con xlsxwriter (mejor para set_column); si no, openpyxl; si no, sin ajuste de ancho
+    # Intentar con xlsxwriter; si no, openpyxl; si no, sin ajuste de ancho
     try:
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
             df.to_excel(writer, index=False, sheet_name=sheet_name)
@@ -297,7 +365,10 @@ def dataframe_a_xlsx_bytes(df: pd.DataFrame, sheet_name: str = "datos") -> bytes
 if uploaded is None:
     st.info("Sube un archivo CSV para comenzar.")
 else:
-    # Lectura con los parámetros elegidos
+    if DF_MAESTRO is None:
+        st.stop()
+
+    # Lectura CSV principal
     try:
         df_in = pd.read_csv(uploaded, encoding=enc_in, sep=sep_in)
     except UnicodeDecodeError:
@@ -328,8 +399,8 @@ else:
     else:
         st.info("No se encontró la columna 'Submission ID'. No se aplicará el filtro por ID de inicio.")
 
-    # Transformar
-    df_out = transformar(df_in, start_id_value=start_id_value)
+    # Transformar con maestro local
+    df_out = transformar(df_in, start_id_value=start_id_value, df_maestro=DF_MAESTRO)
 
     st.subheader("✅ Vista previa - Salida")
     st.dataframe(df_out.head(20), use_container_width=True)
@@ -346,3 +417,4 @@ else:
     )
 
     st.success("Transformación completada. Puedes descargar el archivo arriba.")
+
