@@ -170,10 +170,11 @@ MAP_PRODUCTO = {
 
 # ================== UTILIDADES ==================
 def normalizar_texto_series(s: pd.Series) -> pd.Series:
-    """Minimiza errores de join: quita tildes, pasa a minúsculas, trim y colapsa espacios."""
+    """Normaliza: trim, lower, sin tildes, convierte NO alfanum a espacio y colapsa espacios."""
     s = s.astype(str).str.strip().str.lower()
     s = s.apply(lambda x: ''.join(c for c in unicodedata.normalize('NFKD', x) if not unicodedata.combining(c)))
-    s = s.str.replace(r'\s+', ' ', regex=True)
+    s = s.str.replace(r'[^0-9a-z]+', ' ', regex=True)
+    s = s.str.replace(r'\s+', ' ', regex=True).str.strip()
     return s
 
 # ================== CARGA LOCAL DEL MAESTRO DE PAÍSES ==================
@@ -182,11 +183,13 @@ def cargar_maestro_local() -> pd.DataFrame | None:
     Carga 'Paises_landing_ISO.xlsx' desde:
     1) el mismo directorio que app.py
     2) ./data/Paises_landing_ISO.xlsx
+    3) /mnt/data/Paises_landing_ISO.xlsx (fallback)
     Requiere columnas: 'País' y 'País_normalizado'
     """
     candidates = [
         Path(__file__).parent / "Paises_landing_ISO.xlsx",
         Path(__file__).parent / "data" / "Paises_landing_ISO.xlsx",
+        Path("/mnt/data/Paises_landing_ISO.xlsx"),
     ]
     for p in candidates:
         try:
@@ -204,46 +207,41 @@ def cargar_maestro_modalidad() -> pd.DataFrame | None:
     Carga 'modalidad.xlsx' desde:
     1) el mismo directorio que app.py
     2) ./data/modalidad.xlsx
-    Requiere columna clave: 'Modalidad'
-    Intenta detectar la columna de nombre: 'Nombre' | 'Nombre_modalidad' | 'Modalidad_nombre'
+    3) /mnt/data/modalidad.xlsx  (fallback)
+    Requiere columnas: 'Modalidad' (clave) y 'Nombre' (valor)
     """
     candidates = [
         Path(__file__).parent / "modalidad.xlsx",
         Path(__file__).parent / "data" / "modalidad.xlsx",
+        Path("/mnt/data/modalidad.xlsx"),
     ]
     for p in candidates:
         try:
             if p.exists():
                 dfm = pd.read_excel(p)
                 if "Modalidad" in dfm.columns:
-                    # Normalizar trims
                     dfm["Modalidad"] = dfm["Modalidad"].astype(str).str.strip()
-                    for c in ["Nombre", "Nombre_modalidad", "Modalidad_nombre"]:
-                        if c in dfm.columns:
-                            dfm[c] = dfm[c].astype(str).str.strip()
-                    return dfm
+                if "Nombre" in dfm.columns:
+                    dfm["Nombre"] = dfm["Nombre"].astype(str).str.strip()
+                return dfm
         except Exception:
             pass
     return None
 
 DF_MAESTRO = cargar_maestro_local()
 if DF_MAESTRO is None:
-    st.error("❌ No se encontró el maestro 'Paises_landing_ISO.xlsx' en el mismo directorio ni en ./data/. "
-             "Colócalo junto a app.py o en ./data/ y vuelve a ejecutar.")
+    st.error("❌ No se encontró el maestro 'Paises_landing_ISO.xlsx' en el mismo directorio, ./data/ ni /mnt/data/. "
+             "Colócalo junto a app.py, en ./data/ o en /mnt/data/ y vuelve a ejecutar.")
 else:
-    st.caption("✅ Maestro de países cargado desde el directorio del proyecto.")
+    st.caption("✅ Maestro de países cargado.")
     st.dataframe(DF_MAESTRO.head(10), use_container_width=True)
 
 DF_MAESTRO_MODALIDAD = cargar_maestro_modalidad()
 if DF_MAESTRO_MODALIDAD is None:
-    st.error("❌ No se encontró el maestro 'modalidad.xlsx' en el mismo directorio ni en ./data/. "
-             "Colócalo junto a app.py o en ./data/ y vuelve a ejecutar.")
+    st.error("❌ No se encontró el maestro 'modalidad.xlsx' en el mismo directorio, ./data/ ni /mnt/data/. "
+             "Colócalo junto a app.py, en ./data/ o en /mnt/data/ y vuelve a ejecutar.")
 else:
-    posibles_nombres = [c for c in ["Nombre", "Nombre_modalidad", "Modalidad_nombre"] if c in DF_MAESTRO_MODALIDAD.columns]
-    if not posibles_nombres:
-        st.warning("⚠️ El maestro de modalidad no tiene una columna de nombre reconocida "
-                   "('Nombre', 'Nombre_modalidad' o 'Modalidad_nombre'). Solo se usará 'Modalidad'.")
-    st.caption("✅ Maestro de modalidad cargado desde el directorio del proyecto.")
+    st.caption("✅ Maestro de modalidad cargado.")
     st.dataframe(DF_MAESTRO_MODALIDAD.head(10), use_container_width=True)
 
 # ================== FUNCIÓN DE TRANSFORMACIÓN ==================
@@ -309,38 +307,32 @@ def transformar(df: pd.DataFrame, start_id_value=None,
 
     # === 10.1) CRUCE CON MAESTRO DE PAÍSES PARA DEJAR 'pais' NORMALIZADO ===
     if df_maestro is not None and {"País", "País_normalizado"}.issubset(df_maestro.columns) and "pais" in df.columns:
-        # Normalizar claves en ambos lados
         df["_pais_norm"] = normalizar_texto_series(df["pais"])
-        df_maestro = df_maestro.copy()
-        df_maestro["_pais_norm"] = normalizar_texto_series(df_maestro["País"])
+        maestro_paises = df_maestro.copy()
+        maestro_paises["_pais_norm"] = normalizar_texto_series(maestro_paises["País"])
 
-        # Evitar duplicados en maestro por la clave normalizada
-        df_maestro = df_maestro.drop_duplicates(subset=["_pais_norm"], keep="first")
+        maestro_paises = maestro_paises.drop_duplicates(subset=["_pais_norm"], keep="first")
 
-        # Hacer merge para traer País_normalizado
         df = df.merge(
-            df_maestro[["_pais_norm", "País_normalizado"]],
+            maestro_paises[["_pais_norm", "País_normalizado"]],
             on="_pais_norm",
             how="left"
         )
 
-        # Reemplazar 'pais' por el valor normalizado cuando exista
         df["pais"] = df["País_normalizado"].fillna(df["pais"])
 
-        # Reporte de cobertura y no-coincidencias
         total = len(df)
         matched = df["País_normalizado"].notna().sum()
         if total > 0:
             st.info(f"Maestro de países: {matched} de {total} filas normalizadas ({matched/total:.1%}).")
 
-        no_match = df.loc[df["País_normalizado"].isna(), "pais"].dropna().unique().tolist()
+        no_match = df.loc[df["País_normalizado"].isna(), "_pais_norm"].dropna().unique().tolist()
         if no_match:
             st.warning(
-                "Países sin correspondencia en el maestro (muestra máx. 20): "
+                "Países sin correspondencia en el maestro (muestra máx. 20, normalizados): "
                 + ", ".join(no_match[:20]) + ("..." if len(no_match) > 20 else "")
             )
 
-        # Limpieza columnas auxiliares
         df.drop(columns=["_pais_norm", "País_normalizado"], inplace=True, errors="ignore")
 
     # 11) Mapear RGPD
@@ -359,50 +351,42 @@ def transformar(df: pd.DataFrame, start_id_value=None,
     if df_maestro_modalidad is not None and "modalidad" in df.columns:
         maestro_mod = df_maestro_modalidad.copy()
 
-        # Detectar columna de nombre en maestro
-        col_nombre_modalidad = None
-        for c in ["Nombre", "Nombre_modalidad", "Modalidad_nombre"]:
-            if c in maestro_mod.columns:
-                col_nombre_modalidad = c
-                break
+        if not {"Modalidad", "Nombre"}.issubset(set(maestro_mod.columns)):
+            st.warning("⚠️ El maestro de modalidad necesita columnas 'Modalidad' y 'Nombre'. No se aplica sustitución.")
+        else:
+            # Normalizar claves
+            df["_modalidad_norm"] = normalizar_texto_series(df["modalidad"])
+            maestro_mod["_modalidad_norm"] = normalizar_texto_series(maestro_mod["Modalidad"])
 
-        # Normalizar claves para el join
-        df["_modalidad_norm"] = normalizar_texto_series(df["modalidad"].astype(str))
-        maestro_mod["_modalidad_norm"] = normalizar_texto_series(maestro_mod["Modalidad"].astype(str))
+            # Evitar duplicados por clave normalizada
+            maestro_mod = maestro_mod.drop_duplicates(subset=["_modalidad_norm"], keep="first")
 
-        # Evitar duplicados por clave
-        maestro_mod = maestro_mod.drop_duplicates(subset=["_modalidad_norm"], keep="first")
-
-        # Hacer merge (left) para traer el nombre
-        if col_nombre_modalidad is not None:
+            # Merge
             df = df.merge(
-                maestro_mod[["_modalidad_norm", col_nombre_modalidad]],
+                maestro_mod[["_modalidad_norm", "Nombre"]],
                 on="_modalidad_norm",
                 how="left"
             )
-            # Reemplazar 'modalidad' por el nombre cuando exista
-            df["modalidad"] = df[col_nombre_modalidad].fillna(df["modalidad"])
+
+            # Sustitución
+            df["modalidad"] = df["Nombre"].fillna(df["modalidad"])
 
             # Reporte
             total = len(df)
-            matched = df[col_nombre_modalidad].notna().sum()
+            matched = df["Nombre"].notna().sum()
             if total > 0:
                 st.info(f"Maestro de modalidad: {matched} de {total} filas mapeadas ({matched/total:.1%}).")
 
-            no_match = df.loc[df[col_nombre_modalidad].isna(), "_modalidad_norm"].dropna().unique().tolist()
+            # Muestra de no coincidencias (clave normalizada del CSV)
+            no_match = df.loc[df["Nombre"].isna(), "_modalidad_norm"].dropna().unique().tolist()
             if no_match:
                 st.warning(
-                    "Modalidades sin correspondencia en el maestro (muestra máx. 20): "
+                    "Modalidades sin correspondencia en el maestro (muestra máx. 20, normalizadas): "
                     + ", ".join(no_match[:20]) + ("..." if len(no_match) > 20 else "")
                 )
 
             # Limpieza columnas auxiliares
-            df.drop(columns=[col_nombre_modalidad], inplace=True, errors="ignore")
-        else:
-            st.warning("⚠️ No se encontró una columna de nombre en el maestro de modalidad "
-                       "('Nombre', 'Nombre_modalidad' o 'Modalidad_nombre'). No se aplica sustitución.")
-
-        df.drop(columns=["_modalidad_norm"], inplace=True, errors="ignore")
+            df.drop(columns=["_modalidad_norm", "Nombre"], inplace=True, errors="ignore")
 
     # 13) Añadir columnas fijas
     df["mercado"] = "EU"
@@ -422,14 +406,10 @@ def transformar(df: pd.DataFrame, start_id_value=None,
 # ===== Utilidad: exportar a XLSX con fallback de motor =====
 def dataframe_a_xlsx_bytes(df: pd.DataFrame, sheet_name: str = "datos") -> bytes:
     buffer = io.BytesIO()
-
-    # Intentar con xlsxwriter; si no, openpyxl; si no, sin ajuste de ancho
     try:
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
             df.to_excel(writer, index=False, sheet_name=sheet_name)
             worksheet = writer.sheets[sheet_name]
-
-            # Autoajuste básico usando hasta 100 filas (para rendimiento)
             for i, col in enumerate(df.columns):
                 sample = df[col].astype(str).head(100).tolist()
                 max_len = max([len(col)] + [len(s) for s in sample]) + 2
@@ -445,7 +425,6 @@ def dataframe_a_xlsx_bytes(df: pd.DataFrame, sheet_name: str = "datos") -> bytes
                     max_len = max([len(col)] + [len(s) for s in sample]) + 2
                     ws.column_dimensions[get_column_letter(i)].width = min(max_len, 50)
         except Exception:
-            # Último recurso: sin ajuste de anchos
             with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
                 df.to_excel(writer, index=False, sheet_name=sheet_name)
 
@@ -456,7 +435,7 @@ def dataframe_a_xlsx_bytes(df: pd.DataFrame, sheet_name: str = "datos") -> bytes
 if uploaded is None:
     st.info("Sube un archivo CSV para comenzar.")
 else:
-    # Exigir ambos maestros como en el de países
+    # Exigir ambos maestros
     if DF_MAESTRO is None or DF_MAESTRO_MODALIDAD is None:
         st.stop()
 
