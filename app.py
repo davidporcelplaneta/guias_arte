@@ -199,17 +199,40 @@ else:
     with st.expander("Rutas probadas (países)"):
         st.code("\n".join(RUTAS_PAISES))
 
-# ========== CARGA MAESTRO MODALIDAD ==========
+# ========== CARGA MAESTRO MODALIDAD (usa columnas EXACTAS: 'modalidad' y 'nombre') ==========
+def _normaliza_headers_y_renombra_a_min(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normaliza encabezados y, si detecta equivalentes, los renombra a 'modalidad' y 'nombre'.
+    Acepta variantes como 'Modalidad', 'NOMBRE', 'Nombre de modalidad', etc.
+    """
+    def norm(s: str) -> str:
+        s = str(s).strip().lower()
+        s = ''.join(c for c in unicodedata.normalize('NFKD', s) if not unicodedata.combining(c))
+        s = ''.join(ch if ch.isalnum() else ' ' for ch in s)
+        s = ' '.join(s.split())
+        return s
+
+    mapping = {}
+    for c in df.columns:
+        nc = norm(c)
+        if nc == "modalidad":
+            mapping[c] = "modalidad"
+        elif nc in ("nombre", "nombre modalidad", "modalidad nombre", "nombre de modalidad"):
+            mapping[c] = "nombre"
+    if mapping:
+        df = df.rename(columns=mapping)
+    return df
+
 def cargar_maestro_modalidad(url_hint: str | None = None):
-    # 1) Si nos das URL RAW de GitHub, priorizamos eso
+    # 1) Si nos dan URL RAW, priorizamos
     if url_hint:
         df_url, origen_url = cargar_excel_url(url_hint)
         if df_url is not None:
+            df_url = _normaliza_headers_y_renombra_a_min(df_url)
             return df_url, origen_url, ["(usada URL proporcionada)"], APPDIR, CWD
 
     # 2) Búsqueda local flexible
     candidates = buscar_candidatos_modalidad()
-    # Añadimos rutas típicas por si no encuentra nada
     if not candidates:
         candidates = [
             Path(__file__).parent / "modalidad.xlsx",
@@ -218,7 +241,10 @@ def cargar_maestro_modalidad(url_hint: str | None = None):
             Path.cwd() / "data" / "modalidad.xlsx",
             Path("/mnt/data/modalidad.xlsx"),
         ]
-    return cargar_excel_local(candidates)
+    df, origen, rutas, appdir, cwd = cargar_excel_local(candidates)
+    if df is not None:
+        df = _normaliza_headers_y_renombra_a_min(df)
+    return df, origen, rutas, appdir, cwd
 
 DF_MAESTRO_MODALIDAD, ORIGEN_MODALIDAD, RUTAS_MODALIDAD, APPDIR, CWD = cargar_maestro_modalidad(url_modalidad if url_modalidad.strip() else None)
 if DF_MAESTRO_MODALIDAD is None:
@@ -226,14 +252,17 @@ if DF_MAESTRO_MODALIDAD is None:
     with st.expander("Rutas/criterios probados (modalidad)"):
         st.code("\n".join(RUTAS_MODALIDAD))
 else:
-    # Validamos columnas esperadas
-    cols_ok = {"Modalidad","Nombre"}.issubset(DF_MAESTRO_MODALIDAD.columns)
+    # 👉 Validamos EXACTAMENTE estas columnas: 'modalidad' y 'nombre'
+    cols_ok = {"modalidad","nombre"}.issubset(DF_MAESTRO_MODALIDAD.columns)
     if not cols_ok:
-        st.warning(f"⚠️ Maestro de modalidad cargado desde {ORIGEN_MODALIDAD}, pero faltan columnas 'Modalidad' y/o 'Nombre'. Columnas detectadas: {list(DF_MAESTRO_MODALIDAD.columns)}")
+        st.warning(
+            f"⚠️ Maestro de modalidad cargado desde {ORIGEN_MODALIDAD}, "
+            f"pero faltan columnas 'modalidad' y/o 'nombre'. Columnas detectadas: {list(DF_MAESTRO_MODALIDAD.columns)}"
+        )
     else:
-        # Normalización básica interna
-        DF_MAESTRO_MODALIDAD["Modalidad"] = DF_MAESTRO_MODALIDAD["Modalidad"].astype(str).str.strip()
-        DF_MAESTRO_MODALIDAD["Nombre"] = DF_MAESTRO_MODALIDAD["Nombre"].astype(str).str.strip()
+        # Trims básicos
+        DF_MAESTRO_MODALIDAD["modalidad"] = DF_MAESTRO_MODALIDAD["modalidad"].astype(str).str.strip()
+        DF_MAESTRO_MODALIDAD["nombre"]    = DF_MAESTRO_MODALIDAD["nombre"].astype(str).str.strip()
         st.success(f"✅ Maestro de modalidad cargado correctamente desde: {ORIGEN_MODALIDAD} ({len(DF_MAESTRO_MODALIDAD)} filas)")
     st.dataframe(DF_MAESTRO_MODALIDAD.head(10), use_container_width=True)
 
@@ -282,10 +311,11 @@ def transformar(df: pd.DataFrame, start_id_value=None,
     df = df.drop_duplicates(subset=["email_norm"], keep="first")
     df.drop(columns=["telefono_norm", "email_norm"], inplace=True, errors="ignore")
 
-    if "nombre" in df.columns:
+    # Nombre completo → nombre_pila + primer_apellido
+    if "nombre" in df.columns:  # (este es el nombre de la persona tras RENOMBRE)
         df["nombre_pila"] = df["nombre"].astype(str).str.split().str[0]
         df["primer_apellido"] = df["nombre"].astype(str).str.split(n=1).str[1].fillna("")
-        df.drop(columns=["nombre"], inplace=True)
+        df.drop(columns=["nombre"], inplace=True)  # liberamos el nombre personal para evitar colisión con 'nombre' de modalidad
 
     if "id_integrador" in df.columns:
         df["id_integrador"] = df["id_integrador"].astype("Int64").astype(str) + "-es_guias"
@@ -319,20 +349,21 @@ def transformar(df: pd.DataFrame, start_id_value=None,
     if "producto_interes" in df.columns:
         df["producto_interes"] = df["producto_interes"].astype(str).str.strip().map(MAP_PRODUCTO).fillna(df["producto_interes"])
 
-    # --- Cruce MODALIDAD ---
-    if df_modalidad is not None and {"Modalidad","Nombre"}.issubset(df_modalidad.columns) and "modalidad" in df.columns:
+    # --- Cruce MODALIDAD (usa EXACTAMENTE columnas 'modalidad' y 'nombre' del maestro) ---
+    if df_modalidad is not None and {"modalidad","nombre"}.issubset(df_modalidad.columns) and "modalidad" in df.columns:
         dm = df_modalidad.copy()
         df["_modalidad_norm"] = normalizar_texto_series(df["modalidad"])
-        dm["_modalidad_norm"] = normalizar_texto_series(dm["Modalidad"])
+        dm["_modalidad_norm"] = normalizar_texto_series(dm["modalidad"])
         dm = dm.drop_duplicates(subset=["_modalidad_norm"], keep="first")
-        df = df.merge(dm[["_modalidad_norm", "Nombre"]], on="_modalidad_norm", how="left")
-        df["modalidad"] = df["Nombre"].fillna(df["modalidad"])
-        total = len(df); matched = df["Nombre"].notna().sum()
+        df = df.merge(dm[["_modalidad_norm", "nombre"]], on="_modalidad_norm", how="left")
+        # Sustitución: si hay nombre en maestro, reemplaza el código de 'modalidad'
+        df["modalidad"] = df["nombre"].fillna(df["modalidad"])
+        total = len(df); matched = df["nombre"].notna().sum()
         if total > 0: st.info(f"Maestro de modalidad: {matched} de {total} filas mapeadas ({matched/total:.1%}).")
-        no_match = df.loc[df["Nombre"].isna(), "_modalidad_norm"].dropna().unique().tolist()
+        no_match = df.loc[df["nombre"].isna(), "_modalidad_norm"].dropna().unique().tolist()
         if no_match:
             st.warning("Modalidades sin correspondencia (muestra máx. 20): " + ", ".join(no_match[:20]) + ("..." if len(no_match) > 20 else ""))
-        df.drop(columns=["_modalidad_norm", "Nombre"], inplace=True, errors="ignore")
+        df.drop(columns=["_modalidad_norm", "nombre"], inplace=True, errors="ignore")
 
     # Fijos
     df["mercado"] = "EU"
@@ -379,7 +410,7 @@ def dataframe_a_xlsx_bytes(df: pd.DataFrame, sheet_name: str = "datos") -> bytes
 if uploaded is None:
     st.info("Sube un archivo CSV para comenzar.")
 else:
-    # NOTA: no detenemos la app si falta un maestro; mostramos avisos y seguimos para diagnosticar
+    # Leemos CSV
     try:
         df_in = pd.read_csv(uploaded, encoding=enc_in, sep=sep_in)
     except UnicodeDecodeError:
