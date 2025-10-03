@@ -201,32 +201,84 @@ def cargar_maestro_local() -> pd.DataFrame | None:
             pass
     return None
 
-# ================== CARGA LOCAL DEL MAESTRO DE MODALIDAD ==================
-def cargar_maestro_modalidad() -> pd.DataFrame | None:
+# ================== CARGA LOCAL DEL MAESTRO DE MODALIDAD (con diagnóstico) ==================
+def cargar_maestro_modalidad():
     """
-    Carga 'modalidad.xlsx' desde:
-    1) el mismo directorio que app.py
-    2) ./data/modalidad.xlsx
-    3) /mnt/data/modalidad.xlsx  (fallback)
-    Requiere columnas: 'Modalidad' (clave) y 'Nombre' (valor)
+    Devuelve (df, origen, candidatos_probeados, archivos_en_appdir)
+    - Busca 'modalidad.xlsx' ignorando mayúsculas/minúsculas en:
+      1) mismo directorio que app.py
+      2) ./data/
+      3) /mnt/data/
+      4) (fallback) cualquier *.xlsx que contenga 'modalid' en el nombre dentro de 1) y 2) (búsqueda recursiva)
+    - Normaliza trims básicos.
+    - Espera columnas: 'Modalidad' (clave) y 'Nombre' (valor).
     """
-    candidates = [
-        Path(__file__).parent / "modalidad.xlsx",
-        Path(__file__).parent / "data" / "modalidad.xlsx",
-        Path("/mnt/data/modalidad.xlsx"),
+    from glob import iglob
+
+    appdir = Path(__file__).parent
+    datadir = appdir / "data"
+
+    def case_insensitive_match(base: Path, filename: str) -> Path | None:
+        if not base.exists():
+            return None
+        target = filename.lower()
+        for p in base.iterdir():
+            if p.is_file() and p.name.lower() == target:
+                return p
+        return None
+
+    candidates = []
+    # Coincidencia exacta ignorando mayúsculas/minúsculas
+    for base in [appdir, datadir, Path("/mnt/data")]:
+        p = case_insensitive_match(base, "modalidad.xlsx")
+        if p is not None:
+            candidates.append(p)
+
+    # Búsqueda recursiva por nombre aproximado (contiene 'modalid')
+    for base in [appdir, datadir]:
+        if base.exists():
+            for p in iglob(str(base / "**/*.xlsx"), recursive=True):
+                pth = Path(p)
+                if "modalid" in pth.name.lower():
+                    candidates.append(pth)
+
+    # Eliminar duplicados manteniendo orden
+    seen = set()
+    uniq = []
+    for p in candidates:
+        s = str(p.resolve())
+        if s not in seen:
+            seen.add(s)
+            uniq.append(p)
+    candidates = uniq
+
+    probadas = [str(p) for p in candidates] or [
+        str(appdir / "modalidad.xlsx"),
+        str(datadir / "modalidad.xlsx"),
+        "/mnt/data/modalidad.xlsx",
+        f"(scan recursivo en {appdir})",
+        f"(scan recursivo en {datadir})",
     ]
+
+    # Listado de archivos reales en el directorio de la app (para diagnóstico)
+    try:
+        archivos_en_appdir = [p.name for p in appdir.iterdir() if p.is_file()]
+    except Exception:
+        archivos_en_appdir = []
+
+    # Intentos de lectura
     for p in candidates:
         try:
-            if p.exists():
-                dfm = pd.read_excel(p)
-                if "Modalidad" in dfm.columns:
-                    dfm["Modalidad"] = dfm["Modalidad"].astype(str).str.strip()
-                if "Nombre" in dfm.columns:
-                    dfm["Nombre"] = dfm["Nombre"].astype(str).str.strip()
-                return dfm
+            dfm = pd.read_excel(p)
+            if "Modalidad" in dfm.columns:
+                dfm["Modalidad"] = dfm["Modalidad"].astype(str).str.strip()
+            if "Nombre" in dfm.columns:
+                dfm["Nombre"] = dfm["Nombre"].astype(str).str.strip()
+            return dfm, str(p), probadas, archivos_en_appdir
         except Exception:
-            pass
-    return None
+            continue
+
+    return None, "", probadas, archivos_en_appdir
 
 DF_MAESTRO = cargar_maestro_local()
 if DF_MAESTRO is None:
@@ -236,12 +288,17 @@ else:
     st.caption("✅ Maestro de países cargado.")
     st.dataframe(DF_MAESTRO.head(10), use_container_width=True)
 
-DF_MAESTRO_MODALIDAD = cargar_maestro_modalidad()
+DF_MAESTRO_MODALIDAD, ORIGEN_MODALIDAD, RUTAS_MODALIDAD, ARCHIVOS_APPDIR = cargar_maestro_modalidad()
 if DF_MAESTRO_MODALIDAD is None:
-    st.error("❌ No se encontró el maestro 'modalidad.xlsx' en el mismo directorio, ./data/ ni /mnt/data/. "
-             "Colócalo junto a app.py, en ./data/ o en /mnt/data/ y vuelve a ejecutar.")
+    st.error(
+        "❌ No se encontró el maestro 'modalidad.xlsx'.\n\n"
+        "Rutas probadas / criterios:\n- " + "\n- ".join(RUTAS_MODALIDAD)
+    )
+    with st.expander("🔎 Archivos realmente presentes junto a app.py"):
+        st.code("\n".join(ARCHIVOS_APPDIR) if ARCHIVOS_APPDIR else "(no se pudieron listar)")
 else:
-    st.caption("✅ Maestro de modalidad cargado.")
+    st.success(f"✅ Maestro de modalidad cargado correctamente desde: {ORIGEN_MODALIDAD} "
+               f"({len(DF_MAESTRO_MODALIDAD)} filas)")
     st.dataframe(DF_MAESTRO_MODALIDAD.head(10), use_container_width=True)
 
 # ================== FUNCIÓN DE TRANSFORMACIÓN ==================
